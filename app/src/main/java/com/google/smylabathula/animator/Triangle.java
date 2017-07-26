@@ -40,9 +40,14 @@ public class Triangle {
             ///-0.5f, -0.5f, 0.0f, 1.0f,
             ///0.5f, -0.5f, 0.0f, 1.0f,
             ///0.0f, 0.5f, 0.0f, 1.0f
-            0.5f, 0.0f, 0.0f, 1.0f,
-            0.0f, 0.5f, 0.0f, 1.0f,
-            0.0f, 0.0f, 0.5f, 1.0f
+            0.0f, 0.0f, 0.0f, 1.0f,
+            1.0f, 0.0f, 0.0f, 1.0f,
+            1.0f, 0.0f, 0.0f, 1.0f,
+            1.0f, 1.0f, 0.0f, 1.0f,
+            1.0f, 1.0f, 0.0f, 1.0f,
+            0.0f, 1.0f, 0.0f, 1.f,
+            0.0f, 1.0f, 0.0f, 1.f,
+            0.0f, 0.0f, 0.0f, 1.0f
     };
 
 
@@ -85,7 +90,7 @@ public class Triangle {
         // Pass the projection and view transformation to the shader
         GLES20.glUniformMatrix4fv(mMVPMatrixHandle, 1, false, mvpMatrix, 0);
 
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3);
+        GLES20.glDrawArrays(GLES20.GL_LINES, 0, 4);
     }
 
 }
