@@ -20,13 +20,10 @@ import static android.view.MotionEvent.INVALID_POINTER_ID;
  * Created by mylo on 7/25/17.
  */
 
-public class AnimationSurfaceView extends GLSurfaceView implements SensorEventListener {
+public class AnimationSurfaceView extends GLSurfaceView {
 
     /* OpenGL Animation Globals */
     private final AnimationRenderer animationRenderer;  // Renderer
-    public static  InputStream isX; // CSV File Input Stream
-    public static  InputStream isY; // ...
-    public static  InputStream isZ; // ...
 
     /* Touch Event Globals */
     private float mLastTouchX;  // records previous touch point-x
@@ -50,70 +47,23 @@ public class AnimationSurfaceView extends GLSurfaceView implements SensorEventLi
 
     public AnimationSurfaceView(Context context){
         super(context);
-        setupOrientationTracker(context);
-        animationRenderer = new AnimationRenderer();
+        animationRenderer = new AnimationRenderer(context);
+        mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
         setupAnimationRenderer();
     }
 
     private void setupAnimationRenderer(){
-        // Load CSV Files
-        isX = getResources().openRawResource(R.raw.joints_x);
-        isY = getResources().openRawResource(R.raw.joints_y);
-        isZ = getResources().openRawResource(R.raw.joints_z);
         // Create an OpenGL ES 2.0 context
         setEGLContextClientVersion(2);
         setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-        // Set the Renderer for drawing on the GLSurfaceView
-        setRenderer(animationRenderer);
+        setRenderer(animationRenderer); // Set the Renderer for drawing on the GLSurfaceView
     }
-
-    private void setupOrientationTracker(Context context){
-        mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
-        mAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        //mMagSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        mSensorManager.registerListener(this, mAccelSensor, SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
-        //mSensorManager.registerListener(this, mMagSensor, SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
-        mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-        // do nothing
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            System.arraycopy(event.values, 0, mAccelerometerReading,
-                    0, mAccelerometerReading.length);
-        }
-        else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-            //System.arraycopy(event.values, 0, mMagnetometerReading,
-              //      0, mMagnetometerReading.length);
-        }
-        animationRenderer.zPos = mAccelerometerReading[2];
-        requestRender();
-    }
-
-    /*public void updateOrientationAngles() {
-        // Update rotation matrix, which is needed to update orientation angles.
-        //mSensorManager.getRotationMatrix(mRotationMatrix, null,
-          //      mAccelerometerReading, mMagnetometerReading);
-
-        // "mRotationMatrix" now has up-to-date information.
-
-        //mSensorManager.getOrientation(mRotationMatrix, mOrientationAngles);
-
-        System.out.println(mAccelerometerReading[2]);
-
-        // "mOrientationAngles" now has up-to-date information.
-    }*/
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         mScaleDetector.onTouchEvent(ev);
 
-        /*final int action = MotionEventCompat.getActionMasked(ev);
+        final int action = MotionEventCompat.getActionMasked(ev);
 
         switch (action) {
             case MotionEvent.ACTION_DOWN: {
@@ -178,15 +128,12 @@ public class AnimationSurfaceView extends GLSurfaceView implements SensorEventLi
                 }
                 break;
             }
-        }*/
+        }
 
         return true;
     }
 
-
-
-    private class ScaleListener
-            extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             mScaleFactor *= detector.getScaleFactor();

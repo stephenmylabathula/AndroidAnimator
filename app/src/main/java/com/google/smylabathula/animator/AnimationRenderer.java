@@ -1,13 +1,10 @@
 package com.google.smylabathula.animator;
 
 
+import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -18,7 +15,6 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class AnimationRenderer implements GLSurfaceView.Renderer {
 
-    //private Triangle mTriangle;
     private Skeleton skeleton;
 
     // mMVPMatrix is an abbreviation for "Model View Projection Matrix"
@@ -26,14 +22,20 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
     private final float[] mProjectionMatrix = new float[16];
     private final float[] mViewMatrix = new float[16];
 
-    public volatile float zoom = 2.0f;  //0.5 -> 4.5
+    public volatile float zoom = 1.0f;  //0.5 -> 4.5
     public volatile float xPos = 0.0f;
     public volatile float yPos = 0.0f;
     public volatile float zPos = 0.0f;
 
+    private Context thisContext;
+
+    public AnimationRenderer(Context context) {
+        super();
+        thisContext = context;
+    }
+
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        //mTriangle = new Triangle();
-        skeleton = new Skeleton();
+        skeleton = new Skeleton(thisContext);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     }
 
@@ -43,7 +45,7 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
         Matrix.setLookAtM(mViewMatrix, 0, zoom+xPos, zoom+yPos, zoom+zPos, 0f, 0f, 0f, -1.0f, -1.0f, 2.0f);
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
-        //mTriangle.draw(mMVPMatrix);
+        // Draw the points
         skeleton.draw(mMVPMatrix);
     }
 
