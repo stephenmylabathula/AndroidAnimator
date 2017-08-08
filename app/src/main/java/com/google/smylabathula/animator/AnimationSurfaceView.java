@@ -1,5 +1,6 @@
 package com.google.smylabathula.animator;
 
+import android.app.Activity;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -7,10 +8,12 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
 import android.support.v4.view.MotionEventCompat;
+import android.support.v7.app.ActionBar;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.MotionEvent.*;
 import android.view.ScaleGestureDetector;
+import android.widget.TextView;
 
 import java.io.InputStream;
 
@@ -45,10 +48,11 @@ public class AnimationSurfaceView extends GLSurfaceView {
     //private final float[] mRotationMatrix = new float[9];
     //private final float[] mOrientationAngles = new float[3];
 
-    public AnimationSurfaceView(Context context){
-        super(context);
-        animationRenderer = new AnimationRenderer(context);
-        mScaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+    public AnimationSurfaceView(Activity mainActivity, ActionBar actionBar){
+        super(mainActivity);
+
+        animationRenderer = new AnimationRenderer(mainActivity, actionBar);
+        mScaleDetector = new ScaleGestureDetector(mainActivity, new ScaleListener());
         setupAnimationRenderer();
     }
 
@@ -88,11 +92,12 @@ public class AnimationSurfaceView extends GLSurfaceView {
                 final float y = MotionEventCompat.getY(ev, pointerIndex);
 
                 // Calculate the distance moved
-                final float dx = (x - mLastTouchX) / 10;
-                final float dy = (y - mLastTouchY) / 10;
+                final float dx = (x - mLastTouchX) / 50;
+                final float dy = (y - mLastTouchY) / 50;
 
                // animationRenderer.xPos += dx;
                 animationRenderer.zPos += dy;
+                animationRenderer.xPos += dx;
                 System.out.println(animationRenderer.zPos);
                 requestRender();
 

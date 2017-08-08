@@ -1,10 +1,15 @@
 package com.google.smylabathula.animator;
 
 
+import android.app.Activity;
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
+import android.support.v7.app.ActionBar;
+import android.widget.TextView;
+
+import org.w3c.dom.Text;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -27,15 +32,19 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
     public volatile float yPos = 0.0f;
     public volatile float zPos = 0.0f;
 
-    private Context thisContext;
+    private Activity mainActivity;
+    private ActionBar actionBar;
 
-    public AnimationRenderer(Context context) {
+    public static String currAction = "";
+
+    public AnimationRenderer(Activity activity, android.support.v7.app.ActionBar mTextView) {
         super();
-        thisContext = context;
+        mainActivity = activity;
+        actionBar = mTextView;
     }
 
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-        skeleton = new Skeleton(thisContext);
+        skeleton = new Skeleton(mainActivity);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     }
 
@@ -45,6 +54,13 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
         Matrix.setLookAtM(mViewMatrix, 0, zoom+xPos, zoom+yPos, zoom+zPos, 0f, 0f, 0f, -1.0f, -1.0f, 2.0f);
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
+        // Write Action
+        mainActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                actionBar.setTitle(currAction);
+            }
+        });
         // Draw the points
         skeleton.draw(mMVPMatrix);
     }

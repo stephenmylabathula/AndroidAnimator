@@ -5,6 +5,7 @@ import android.content.res.Resources;
 import android.opengl.GLES20;
 import android.os.SystemClock;
 import android.support.annotation.WorkerThread;
+import android.widget.TextView;
 
 import com.google.gson.*;
 import org.json.JSONArray;
@@ -28,9 +29,10 @@ public class Skeleton implements Runnable {
     Thread listener, renderer;
     Socket socket;
     InputStream inputStream;
-    ArrayList<Byte> incomingData;
     float[][] skeleton;
     int prevType, prevPhase = 0;
+    int action_type, action_phase, action_start, action_end = 0;
+    String[] actions = {"JUMP", "LEFT START WALK", "LEFT STEP WALK", "LEFT STOP WALK", "RIGHT STEP WALK", "RIGHT STOP WALK", "SIT", "SIT POSE", "STAND", "STAND POSE", "WALK", "MOVE"};
 
     /* OpenGL Globals */
     private int _program;
@@ -55,6 +57,58 @@ public class Skeleton implements Runnable {
             "}";
 
 
+    public Skeleton(Context context){
+        // Load the motion capture motion models
+        PoseEstimator.LoadMotionModels(context);
+
+        // Initialize members
+        skeleton = new float[31][3];
+        listener = new Thread(this);
+        renderer = new Thread(this);
+
+        // Setup Sockets and Threads
+        try {
+            socket = new Socket("192.168.43.1", 12345);
+            inputStream = socket.getInputStream();
+            listener.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Setup Skeleton for OpenGL
+        resetPoints();
+        GLES20.glEnableVertexAttribArray(0);
+
+        // Create and compile vertex shader
+        int vertexShader = AnimationRenderer.loadShader(GLES20.GL_VERTEX_SHADER,
+                vertexShaderSource);
+        String vertexShaderCompileLog = GLES20.glGetShaderInfoLog(vertexShader);
+
+        // Create and compile fragment shader
+        int fragmentShader = AnimationRenderer.loadShader(GLES20.GL_FRAGMENT_SHADER,
+                fragmentShaderSource);
+        String fragmentShaderCompileLog = GLES20.glGetShaderInfoLog(fragmentShader);
+
+        // Create, link, and use the create shaders as _program
+        _program = GLES20.glCreateProgram();
+        GLES20.glAttachShader(_program, vertexShader);
+        GLES20.glAttachShader(_program, fragmentShader);
+        GLES20.glBindAttribLocation(_program, 0, "position");
+        GLES20.glLinkProgram(_program);
+        String programLinkLog = GLES20.glGetProgramInfoLog(_program);
+        GLES20.glUseProgram(_program);
+    }
+
+    @Override
+    public void run() {
+        if (Thread.currentThread() == listener && inputStream != null) {
+            listenAndUpdatePoints();
+        }
+        if (Thread.currentThread() == renderer) {
+            GeneratePose();
+        }
+    }
+
     @WorkerThread
     private void listenAndUpdatePoints(){
         while (true) {
@@ -65,7 +119,11 @@ public class Skeleton implements Runnable {
                     String jsonData = new String(inputBytes);
                     try {
                         JSONArray action_phase_json = new JSONArray(jsonData);
-                        GeneratePose(action_phase_json.getInt(0), action_phase_json.getInt(1), action_phase_json.getInt(2), action_phase_json.getInt(3));
+                        action_type = action_phase_json.getInt(0);
+                        action_phase = action_phase_json.getInt(1);
+                        action_start = action_phase_json.getInt(2);
+                        action_end = action_phase_json.getInt(3);
+                        renderer.start();
                     } catch (JSONException e) {
                         try {
                             Thread.sleep(100);
@@ -80,134 +138,61 @@ public class Skeleton implements Runnable {
         }
     }
 
+    /**
+     * Generates Animation for Action Phase Tag
+     */
+    private void GeneratePose() {
+        int type = action_type;
+        int phase = action_phase;
+        int start_index = action_start;
+        int end_index = action_end;
+        AnimationRenderer.currAction = actions[type] + " - PHASE: " + phase;
 
-    @Override
-    public void run() {
-        //if (Thread.currentThread() == listener && inputStream != null) {
-          //  listenAndUpdatePoints();
-        //}
-
-
-
-        if(Thread.currentThread() == listener && inputStream != null) {
-            while(true) {
-                try {
-                    while (inputStream.available() > 0) {
-                        byte[] b = new byte[1024];
-                        inputStream.read(b);
-                        String maybeJson = new String(b);
-                        for (int i = 0; i < 1024; i++)
-                            incomingData.add(b[i]);
-                    }
-                    if(incomingData.size() > 0) {
-                        byte[] newBytes = new byte[incomingData.size()];
-                        for (int i = 0; i < newBytes.length; i++)
-                            newBytes[i] = incomingData.get(i);
-                        String maybeJson = new String(newBytes);
-                        try {
-                            final JSONArray jsonArray = new JSONArray(maybeJson);
-                            //System.out.println(jsonArray.getInt(0));
-
-                            for (int i = 0; i < jsonArray.length(); i++) {
-                                for (int j = 0; j < 3; j++) {
-                                    skeleton[i][j] = (float) jsonArray.getJSONArray(i).getDouble(j);
-                                }
-                            }
-                            resetPoints();
-
-                            //GeneratePose(jsonArray.getInt(0), jsonArray.getInt(1), jsonArray.getInt(2), jsonArray.getInt(3));
-                            incomingData.clear();
-                        } catch (JSONException e) {
-                            System.out.println("BAD JSON");
-                        }
-                    }
-                } catch (Exception e) {
-
-                }
-                try {
-                    Thread.sleep(10);
-                } catch (Exception e){
-
-                }
-            }
-        }
-    }
-
-    private void GeneratePose(int type, int phase, int start_index, int end_index) {
-
+        // Check that we have a new action and phase
         if (prevType == type && prevPhase == phase)
             return;
 
+        // Record this new action as the previous action for next time
         prevType = type;
         prevPhase = phase;
+
+        // Get motion model for current action
         MotionModel current_model = PoseEstimator.motion_models.get(type);
 
-        int model_start_index = current_model.motion_phases.indices.get(phase - 1);
-        int model_end_index = current_model.motion_phases.indices.get(phase);
-        //int motion_start_index = start_index;
-        //int motion_end_index = end_index;
+        int model_start_index = current_model.motion_phases.indices.get(Math.max(phase - 1, 0)); //should be phase - 1 when fixed
+        int model_end_index = current_model.motion_phases.indices.get(Math.min(phase, current_model.motion_phases.indices.size() - 1));
+        int motion_start_index = start_index;
+        int motion_end_index = end_index;
 
-        //float model_to_motion_time_ratio = (motion_end_index - motion_start_index) / (model_end_index - model_start_index);
+        int model_to_motion_time_ratio;
+
+        if (motion_end_index - motion_start_index <= 0)
+            model_to_motion_time_ratio = 10;
+        else
+            model_to_motion_time_ratio = Math.max((Math.round((motion_end_index - motion_start_index) / (model_end_index - model_start_index)) * 5), 1);
 
         for (int i = model_start_index; i <= model_end_index; i++) {
             Vector<Vector<Double>> currXYZ = current_model.GetXYZPoints(current_model.channels.get(i));
             for (int j = 0; j < 31; j++){
-                for (int k = 0; k < 3; k++)
-                    skeleton[j][k] = currXYZ.get(j).get(k).floatValue();
+                skeleton[j][0] = currXYZ.get(j).get(0).floatValue();
+                skeleton[j][2] = currXYZ.get(j).get(1).floatValue();
+                skeleton[j][1] = currXYZ.get(j).get(2).floatValue();
             }
             resetPoints();
             try {
-                Thread.sleep(100);
+                Thread.sleep((long) model_to_motion_time_ratio);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public Skeleton(Context context){
-        // load motion capture motion models
-        PoseEstimator.LoadMotionModels(context);
-
-        // initialize members
-        skeleton = new float[31][3];
-        incomingData = new ArrayList<>();
-
-        try {
-            socket = new Socket("192.168.43.1", 12345);
-            inputStream = socket.getInputStream();
-            listener = new Thread(this);
-            //renderer = new Thread(this);
-            listener.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Setup Skeleton for OpenGL
-        resetPoints();
-        GLES20.glEnableVertexAttribArray(0);
-
-        // create and compile vertex shader
-        int vertexShader = AnimationRenderer.loadShader(GLES20.GL_VERTEX_SHADER,
-                vertexShaderSource);
-        String vertexShaderCompileLog = GLES20.glGetShaderInfoLog(vertexShader);
-
-        // create and compile fragment shader
-        int fragmentShader = AnimationRenderer.loadShader(GLES20.GL_FRAGMENT_SHADER,
-                fragmentShaderSource);
-        String fragmentShaderCompileLog = GLES20.glGetShaderInfoLog(fragmentShader);
-
-        // create, link, and use the create shaders as _program
-        _program = GLES20.glCreateProgram();
-        GLES20.glAttachShader(_program, vertexShader);
-        GLES20.glAttachShader(_program, fragmentShader);
-        GLES20.glBindAttribLocation(_program, 0, "position");
-        GLES20.glLinkProgram(_program);
-        String programLinkLog = GLES20.glGetProgramInfoLog(_program);
-        GLES20.glUseProgram(_program);
-    }
-
+    /**
+     * Generates Points to Render Lines for Skeleton
+     * @return
+     */
     private float[][] getLines(){
-        float[][] skeletonWithLines = new float[60][3];
+        float[][] skeletonWithLines = new float[68][3];
 
         skeletonWithLines[0] = skeleton[0];
         skeletonWithLines[1] = skeleton[1];
@@ -270,9 +255,22 @@ public class Skeleton implements Runnable {
         skeletonWithLines[58] = skeleton[28];
         skeletonWithLines[59] = skeleton[29];
 
+        // Define Floor
+        skeletonWithLines[60] = new float[]{1.0f, 1.0f, 0.0f};
+        skeletonWithLines[61] = new float[]{1.0f, -1.0f, 0.0f};
+        skeletonWithLines[62] = new float[]{1.0f, 1.0f, 0.0f};
+        skeletonWithLines[63] = new float[]{-1.0f, 1.0f, 0.0f};
+        skeletonWithLines[64] = new float[]{-1.0f, 1.0f, 0.0f};
+        skeletonWithLines[65] = new float[]{-1.0f, -1.0f, 0.0f};
+        skeletonWithLines[66] = new float[]{-1.0f, -1.0f, 0.0f};
+        skeletonWithLines[67] = new float[]{1.0f, -1.0f, 0.0f};
+
         return skeletonWithLines;
     }
 
+    /**
+     * Converts Skeleton Points to OpenGL Point Array
+     */
     private void resetPoints() {
         // add lines to skeleton points and place in 1D array
         float[][] linedSkeleton = getLines();
@@ -299,6 +297,10 @@ public class Skeleton implements Runnable {
         GLES20.glVertexAttribPointer(0, 4, GLES20.GL_FLOAT, false, 4 * 4, geometryBuffer);
     }
 
+    /**
+     * Redraws OpenGL Surface
+     * @param mvpMatrix
+     */
     public void draw(float[] mvpMatrix) {
         resetPoints();
 
@@ -310,7 +312,7 @@ public class Skeleton implements Runnable {
 
         // arg2: 0 is the program ID
         // arg3: 60 is the number of points to draw
-        GLES20.glDrawArrays(GLES20.GL_LINES, 0, 60);
+        GLES20.glDrawArrays(GLES20.GL_LINES, 0, 68);
     }
 
 }

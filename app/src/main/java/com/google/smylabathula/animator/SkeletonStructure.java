@@ -45,7 +45,7 @@ public class SkeletonStructure {
 
     public Vector<Vector<Double>> ComputeSkeletonXYZPose(Vector<Double> channel){
         // calculate the joint rotation values
-        Vector<Double> rotVal = this.tree.get(0).orientation;
+        Vector<Double> rotVal = (Vector<Double>) this.tree.get(0).orientation.clone();
         for (int i = 0; i < 3; i++) {
             int rind = this.tree.get(0).rotind[i];
             if (rind >= 0)
@@ -85,7 +85,7 @@ public class SkeletonStructure {
     private void GetChildXYZ(int ind, Vector<Double> channel){
         // get this joint's (denoted by ind) parent
         int parent = this.tree.get(ind).parent;
-        Vector<Integer> children = this.tree.get(ind).children; // get children
+        Vector<Integer> children = (Vector<Integer>) this.tree.get(ind).children.clone(); // get children
         double rotVal[] = {0, 0, 0};
 
         // get joint rotation values
