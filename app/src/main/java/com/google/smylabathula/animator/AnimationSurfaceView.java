@@ -2,22 +2,11 @@ package com.google.smylabathula.animator;
 
 import android.app.Activity;
 import android.content.Context;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
-import android.support.v4.view.MotionEventCompat;
-import android.support.v7.app.ActionBar;
-import android.view.GestureDetector;
+import android.view.*;
 import android.view.MotionEvent;
-import android.view.MotionEvent.*;
-import android.view.ScaleGestureDetector;
-import android.widget.TextView;
-
-import java.io.InputStream;
-
-import static android.view.MotionEvent.INVALID_POINTER_ID;
+import android.support.v4.view.MotionEventCompat;
+import android.widget.Toast;
 
 /**
  * Created by mylo on 7/25/17.
@@ -26,131 +15,65 @@ import static android.view.MotionEvent.INVALID_POINTER_ID;
 public class AnimationSurfaceView extends GLSurfaceView {
 
     /* OpenGL Animation Globals */
-    private final AnimationRenderer animationRenderer;  // Renderer
+    private final AnimationRenderer animation_renderer;  // Renderer
 
-    /* Touch Event Globals */
-    private float mLastTouchX;  // records previous touch point-x
-    private float mLastTouchY;  // records previous touch point-y
-    private int mActivePointerId = INVALID_POINTER_ID;
-    // Pinch Gesture Variables
+    private Scene animation_scene;
+    private Context main_activity;
     private ScaleGestureDetector mScaleDetector;
-    private float mScaleFactor = 1.f;
 
-    /* Device Orientation Globals */
-    private Sensor mAccelSensor;    // accelerometer sensor handle
-    private SensorManager mSensorManager;
-    private final float[] mAccelerometerReading = new float[3];
 
-    //private final float TOUCH_SCALE_FACTOR = 180.0f / 320;
-    //private float mPreviousX;
-    //private float mPreviousY;
-    //private Sensor mMagSensor;
-    //private final float[] mRotationMatrix = new float[9];
-    //private final float[] mOrientationAngles = new float[3];
-
-    public AnimationSurfaceView(Activity mainActivity, ActionBar actionBar){
+    public AnimationSurfaceView(Activity mainActivity, Scene scene){
         super(mainActivity);
-
-        animationRenderer = new AnimationRenderer(mainActivity, actionBar);
-        mScaleDetector = new ScaleGestureDetector(mainActivity, new ScaleListener());
-        setupAnimationRenderer();
-    }
-
-    private void setupAnimationRenderer(){
-        // Create an OpenGL ES 2.0 context
+        // Create an OpenGL ES 2.0 context.
         setEGLContextClientVersion(2);
         setEGLConfigChooser(8, 8, 8, 8, 16, 0);
-        setRenderer(animationRenderer); // Set the Renderer for drawing on the GLSurfaceView
+        // Create the animation renderer.
+        animation_renderer = new AnimationRenderer(scene);
+        // Initialize member scene variable
+        animation_scene = scene;
+        main_activity = mainActivity;
+        // Initialize Gesture Detector
+        InitializeGestureDetector();
+        mScaleDetector = new ScaleGestureDetector(mainActivity, new ScaleListener());
+        // Set the Renderer for drawing on the GLSurfaceView.
+        setRenderer(animation_renderer);
     }
 
-    @Override
-    public boolean onTouchEvent(MotionEvent ev) {
-        mScaleDetector.onTouchEvent(ev);
+    private void OnDoubleTap() {
+        Toast.makeText(main_activity, animation_scene.ChangeCameraView().replace('_', ' '),
+                Toast.LENGTH_SHORT).show();
+    }
 
-        final int action = MotionEventCompat.getActionMasked(ev);
-
-        switch (action) {
-            case MotionEvent.ACTION_DOWN: {
-                final int pointerIndex = MotionEventCompat.getActionIndex(ev);
-                final float x = MotionEventCompat.getX(ev, pointerIndex);
-                final float y = MotionEventCompat.getY(ev, pointerIndex);
-
-                // Remember where we started (for dragging)
-                mLastTouchX = x;
-                mLastTouchY = y;
-                // Save the ID of this pointer (for dragging)
-                mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
-                break;
-            }
-
-            case MotionEvent.ACTION_MOVE: {
-                // Find the index of the active pointer and fetch its position
-                final int pointerIndex =
-                        MotionEventCompat.findPointerIndex(ev, mActivePointerId);
-
-                final float x = MotionEventCompat.getX(ev, pointerIndex);
-                final float y = MotionEventCompat.getY(ev, pointerIndex);
-
-                // Calculate the distance moved
-                final float dx = (x - mLastTouchX) / 50;
-                final float dy = (y - mLastTouchY) / 50;
-
-               // animationRenderer.xPos += dx;
-                animationRenderer.zPos += dy;
-                animationRenderer.xPos += dx;
-                System.out.println(animationRenderer.zPos);
-                requestRender();
-
-                // Remember this touch position for the next move event
-                mLastTouchX = x;
-                mLastTouchY = y;
-
-                break;
-            }
-
-            case MotionEvent.ACTION_UP: {
-                mActivePointerId = INVALID_POINTER_ID;
-                break;
-            }
-
-            case MotionEvent.ACTION_CANCEL: {
-                mActivePointerId = INVALID_POINTER_ID;
-                break;
-            }
-
-            case MotionEvent.ACTION_POINTER_UP: {
-
-                final int pointerIndex = MotionEventCompat.getActionIndex(ev);
-                final int pointerId = MotionEventCompat.getPointerId(ev, pointerIndex);
-
-                if (pointerId == mActivePointerId) {
-                    // This was our active pointer going up. Choose a new
-                    // active pointer and adjust accordingly.
-                    final int newPointerIndex = pointerIndex == 0 ? 1 : 0;
-                    mLastTouchX = MotionEventCompat.getX(ev, newPointerIndex);
-                    mLastTouchY = MotionEventCompat.getY(ev, newPointerIndex);
-                    mActivePointerId = MotionEventCompat.getPointerId(ev, newPointerIndex);
+    private void InitializeGestureDetector() {
+        this.setOnTouchListener(new OnTouchListener() {
+            private GestureDetector gestureDetector = new GestureDetector(new GestureDetector.SimpleOnGestureListener() {
+                @Override
+                public boolean onDoubleTap(MotionEvent e) {
+                    OnDoubleTap();
+                    return super.onDoubleTap(e);
                 }
-                break;
-            }
-        }
+            });
 
-        return true;
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                mScaleDetector.onTouchEvent(event);
+                gestureDetector.onTouchEvent(event);
+                return true;
+            }
+        });
     }
 
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+        private float mScaleFactor = 1.f;
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             mScaleFactor *= detector.getScaleFactor();
-
             // Don't let the object get too small or too large.
-            mScaleFactor = Math.max(1.f, Math.min(mScaleFactor, 5.0f));
-
-            animationRenderer.zoom = -1 * mScaleFactor + 5.5f;
+            mScaleFactor = Math.max(0.1f, Math.min(mScaleFactor, 5.0f));
+            animation_scene.ChangeCameraView(mScaleFactor);
             requestRender();
             return true;
         }
     }
-
 
 }

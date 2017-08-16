@@ -42,8 +42,29 @@ public class SkeletonStructure {
         left_foot_index = 0;
         right_foot_index = 0;
     }
+    private DenseMatrix YawRotationMatrix(double yaw_angle){
+        // calculate cosine and sine of the angle
+        double c3 = Math.cos(yaw_angle);
+        double s3 = Math.sin(yaw_angle);
+        return new DenseMatrix(new double[][]{{c3, -s3, 0}, {s3, c3, 0}, {0, 0, 1}});
+    }
+    public Vector<Vector<Double>> ComputeSkeletonXYZPose(Vector<Double> channel, double[] position, double yaw_angle) {
+        Vector<Vector<Double>> currXYZ = ComputeSkeletonXYZPose(channel);
+        DenseMatrix rot_z = YawRotationMatrix(yaw_angle);
 
-    public Vector<Vector<Double>> ComputeSkeletonXYZPose(Vector<Double> channel){
+        for (int j = 0; j < 31; j++){
+            double[] x = new double[]{currXYZ.get(j).get(0).doubleValue(), currXYZ.get(j).get(2).doubleValue(), currXYZ.get(j).get(1).doubleValue()};
+            double[] y = multiply(rot_z, x);
+            y[0] +=position[0];
+            y[1] +=position[1];
+            y[2] +=position[2];
+            currXYZ.get(j).set(0, y[0]);
+            currXYZ.get(j).set(1, y[1]);
+            currXYZ.get(j).set(2, y[2]);
+        }
+        return currXYZ;
+    }
+    private Vector<Vector<Double>> ComputeSkeletonXYZPose(Vector<Double> channel){
         // calculate the joint rotation values
         Vector<Double> rotVal = (Vector<Double>) this.tree.get(0).orientation.clone();
         for (int i = 0; i < 3; i++) {
@@ -174,14 +195,14 @@ public class SkeletonStructure {
     }
 
     // matrix-vector multiplication (y = A * x)
-    public static double[] multiply(double[][] a, double[] x) {
-        int m = a.length;
-        int n = a[0].length;
+    public static double[] multiply(DenseMatrix a, double[] x) {
+        int m = a.rows;
+        int n = a.cols;
         if (x.length != n) throw new RuntimeException("Illegal matrix dimensions.");
         double[] y = new double[m];
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++)
-                y[i] += a[i][j] * x[j];
+                y[i] += a.get(i,j) * x[j];
         return y;
     }
 }

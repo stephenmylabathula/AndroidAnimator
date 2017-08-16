@@ -22,8 +22,6 @@ import org.json.JSONObject;
  */
 
 public class MotionModel {
-
-
     private double frame_length;
     private String name;
 
@@ -208,8 +206,9 @@ public class MotionModel {
         }
     }
 
-    public Vector<Vector<Double>> GetXYZPoints(Vector<Double> channel){
-        return this.skeleton_structure.ComputeSkeletonXYZPose(channel);
+
+    public Vector<Vector<Double>> GetXYZPoints(Vector<Double> channel, double[] position_xyz, double[] orientation_rpy){
+        return this.skeleton_structure.ComputeSkeletonXYZPose(channel, position_xyz, orientation_rpy[2]);
     }
 
 

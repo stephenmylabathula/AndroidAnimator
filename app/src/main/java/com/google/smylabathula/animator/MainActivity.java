@@ -1,36 +1,37 @@
 package com.google.smylabathula.animator;
 
-import android.graphics.Color;
-import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
-
-import java.io.File;
-
 
 public class MainActivity extends AppCompatActivity {
 
-    private AnimationSurfaceView animationSurfaceView;
-
+    private AnimationSurfaceView animation_viewer;
+    private ActionTagReceiver action_tag_receiver;
+    private PoseReceiver pose_receiver;
+    private SceneGenerator scene_generator;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ActionBar actionBar = getSupportActionBar();
-        /*TextView mTextView = new TextView(this);
-        mTextView.setText("YourText");
-        mTextView.setTextColor(Color.WHITE);
-        mTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 32);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
-        params.gravity = Gravity.CENTER;*/
-        animationSurfaceView = new AnimationSurfaceView(this, actionBar);
-        setContentView(animationSurfaceView);
-        //addContentView(mTextView, params);
-    }
+        // Create an online receiver.
+        action_tag_receiver = new ActionTagReceiver();
+        // Create an offline receiver.
+        //action_tag_receiver = new ActionTagReceiver(this);
+        // Create the scene generator.
+        scene_generator = new SceneGenerator(this, action_tag_receiver.getActionPhaseQueue());
 
+        Scene animated_scene = scene_generator.getScene();
+        // Create the online pose receiver.
+        pose_receiver = new PoseReceiver(animated_scene.getTrajectory());
+        // Create the offline pose receiver.
+        //pose_receiver = new PoseReceiver(this, animated_scene.getTrajectory());
+
+        // Create the animation viewer.
+        animation_viewer = new AnimationSurfaceView(this, animated_scene);
+        this.setContentView(animation_viewer);
+
+        // Start operation.
+        pose_receiver.Start();
+        action_tag_receiver.Start();
+        scene_generator.Start();
+    }
 }
